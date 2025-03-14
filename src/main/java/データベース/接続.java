@@ -32,6 +32,7 @@ public class 接続 {
             while (resultSet.next()) {
                 System.out.println("ID: " + resultSet.getInt("id"));
                 System.out.println("Name: " + resultSet.getString("name"));
+                System.out.println(new java.io.File("your-database.db").getAbsolutePath());
             }
             
             // リソースを閉じる
