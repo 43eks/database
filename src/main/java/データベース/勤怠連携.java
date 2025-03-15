@@ -116,7 +116,7 @@ public class 勤怠連携 extends JFrame {
         return currentTime.format(formatter); // フォーマットした時刻を返す
     }
 
-    // データベース初期化メソッド
+ // データベース初期化メソッド
     private void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             String createTableSQL = "CREATE TABLE IF NOT EXISTS attendance (" +
@@ -127,9 +127,11 @@ public class 勤怠連携 extends JFrame {
                                     "status TEXT NOT NULL)";
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(createTableSQL); // テーブル作成
+                System.out.println("テーブル作成成功");
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            System.err.println("データベースの初期化に失敗しました: " + e.getMessage());
         }
     }
 
