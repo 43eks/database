@@ -4,6 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -30,6 +33,7 @@ public class 勤怠連携 extends JFrame {
     private JTextArea logArea;
     private JButton clockInButton;
     private JButton clockOutButton;
+    private JButton backupButton;
 
     private static final String DB_URL = "jdbc:sqlite:/Users/genki/attendance.db";
 
@@ -56,10 +60,12 @@ public class 勤怠連携 extends JFrame {
         // ボタン設定
         clockInButton = new JButton("出勤");
         clockOutButton = new JButton("退勤");
+        backupButton = new JButton("バックアップ");
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(clockInButton);
         buttonPanel.add(clockOutButton);
+        buttonPanel.add(backupButton);
 
         // ログエリア
         logArea = new JTextArea();
@@ -91,6 +97,14 @@ public class 勤怠連携 extends JFrame {
                 recordAttendance("退勤");
             }
         });
+
+        // バックアップボタンのアクションリスナー
+        backupButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                backupDatabase();
+            }
+        });
     }
 
     // 勤怠を記録するメソッド（出勤・退勤共通）
@@ -116,7 +130,7 @@ public class 勤怠連携 extends JFrame {
         return currentTime.format(formatter); // フォーマットした時刻を返す
     }
 
- // データベース初期化メソッド
+    // データベース初期化メソッド
     private void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             if (conn != null) {
@@ -173,6 +187,25 @@ public class 勤怠連携 extends JFrame {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    // バックアップ機能
+    private void backupDatabase() {
+        String sourceDbPath = "/Users/genki/attendance.db";  // 元のデータベース
+        String backupDbPath = "/Users/genki/attendance_backup.db";  // バックアップ先
+
+        try {
+            File sourceFile = new File(sourceDbPath);
+            File backupFile = new File(backupDbPath);
+
+            // ファイルをコピーしてバックアップを取る
+            Files.copy(sourceFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            logArea.append("バックアップ成功: " + backupDbPath + "\n");
+        } catch (Exception e) {
+            e.printStackTrace();
+            logArea.append("バックアップ失敗: " + e.getMessage() + "\n");
         }
     }
 
