@@ -31,7 +31,7 @@ public class 勤怠連携 extends JFrame {
     private JButton clockInButton;
     private JButton clockOutButton;
 
-    private static final String DB_URL = "jdbc:sqlite:attendance.db"; // SQLiteデータベースのパス
+    private static final String DB_URL = "jdbc:sqlite:/Users/genki/attendance.db";
 
     public 勤怠連携() {
         // フレームの設定
@@ -119,6 +119,12 @@ public class 勤怠連携 extends JFrame {
  // データベース初期化メソッド
     private void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            if (conn != null) {
+                System.out.println("データベース接続成功: " + DB_URL);
+            } else {
+                System.err.println("データベース接続に失敗");
+            }
+
             String createTableSQL = "CREATE TABLE IF NOT EXISTS attendance (" +
                                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                                     "name TEXT NOT NULL, " +
@@ -126,12 +132,12 @@ public class 勤怠連携 extends JFrame {
                                     "time TEXT NOT NULL, " +
                                     "status TEXT NOT NULL)";
             try (Statement stmt = conn.createStatement()) {
-                stmt.execute(createTableSQL); // テーブル作成
+                stmt.execute(createTableSQL);
                 System.out.println("テーブル作成成功");
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            System.err.println("データベースの初期化に失敗しました: " + e.getMessage());
+            System.err.println("データベースの初期化に失敗: " + e.getMessage());
         }
     }
 
