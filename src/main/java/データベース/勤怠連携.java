@@ -190,7 +190,8 @@ public class 勤怠連携 extends JFrame {
         }
     }
 
-    // バックアップ機能
+    // バックアップ機能　データベースからバックアップデータベースに対し
+    //テーブルにファイルをコピーしているだけなので、「attendance」があればOK！
     private void backupDatabase() {
         String sourceDbPath = "/Users/genki/attendance.db";  // 元のデータベース
         String backupDbPath = "/Users/genki/attendance_backup.db";  // バックアップ先
