@@ -94,29 +94,36 @@ public class タスク管理GUI extends JFrame {
 
     // データベースからタスクを読み込んでテーブルに表示
     private void loadTasks() {
-        try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String query = "SELECT * FROM tasks";
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(query);
+        try {
+            // SQLite JDBCドライバのロード
+            Class.forName("org.sqlite.JDBC");
             
-            // テーブルに表示するデータを格納
-            DefaultTableModel model = new DefaultTableModel();
-            model.addColumn("ID");
-            model.addColumn("タスク名");
-            model.addColumn("期日");
-            model.addColumn("完了");
-            
-            while (rs.next()) {
-                model.addRow(new Object[] {
-                    rs.getInt("id"),
-                    rs.getString("task_name"),
-                    rs.getString("due_date"),
-                    rs.getString("completed")
-                });
+            try (Connection conn = DriverManager.getConnection("jdbc:sqlite:/Users/genki/tasks.db")) {
+                String query = "SELECT * FROM tasks";
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(query);
+                
+                // テーブルに表示するデータを格納
+                DefaultTableModel model = new DefaultTableModel();
+                model.addColumn("ID");
+                model.addColumn("タスク名");
+                model.addColumn("期日");
+                model.addColumn("完了");
+                
+                while (rs.next()) {
+                    model.addRow(new Object[] {
+                        rs.getInt("id"),
+                        rs.getString("task_name"),
+                        rs.getString("due_date"),
+                        rs.getString("completed")
+                    });
+                }
+                
+                taskTable.setModel(model);
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-            
-            taskTable.setModel(model);
-        } catch (SQLException e) {
+        } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
