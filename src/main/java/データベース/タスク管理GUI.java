@@ -2,8 +2,6 @@ package データベース;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,200 +12,132 @@ import java.sql.Statement;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-import javax.swing.table.DefaultTableModel;
 
 public class タスク管理GUI extends JFrame {
-    
-    private JTable taskTable;
-    private JTextField taskNameField, dueDateField;
-    private JButton addButton, updateButton, deleteButton;
-    private static final String DB_URL = "/Users/genki/tasks.db";
+    private JTextArea taskListArea;
+    private JTextField taskNameField, dueDateField, completedField;
+    private JButton addButton, loadButton;
 
     public タスク管理GUI() {
-        // フレーム設定
+        // データベースとテーブルの作成
+        createDatabaseAndTable();
+
+        // GUI設定
         setTitle("タスク管理アプリ");
-        setSize(600, 400);
+        setSize(400, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // 入力フォームの設定
-        JPanel inputPanel = new JPanel();
-        inputPanel.setLayout(new GridLayout(2, 2));
-        JLabel taskNameLabel = new JLabel("タスク名:");
-        taskNameField = new JTextField();
-        JLabel dueDateLabel = new JLabel("期日 (YYYY-MM-DD):");
-        dueDateField = new JTextField();
+        taskListArea = new JTextArea();
+        taskListArea.setEditable(false);
+        add(new JScrollPane(taskListArea), BorderLayout.CENTER);
 
-        inputPanel.add(taskNameLabel);
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new GridLayout(4, 2));
+
+        inputPanel.add(new JLabel("タスク名:"));
+        taskNameField = new JTextField();
         inputPanel.add(taskNameField);
-        inputPanel.add(dueDateLabel);
+
+        inputPanel.add(new JLabel("期限日:"));
+        dueDateField = new JTextField();
         inputPanel.add(dueDateField);
 
-        // ボタン設定
+        inputPanel.add(new JLabel("完了ステータス:"));
+        completedField = new JTextField();
+        inputPanel.add(completedField);
+
         addButton = new JButton("タスク追加");
-        updateButton = new JButton("タスク更新");
-        deleteButton = new JButton("タスク削除");
+        inputPanel.add(addButton);
 
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.add(addButton);
-        buttonPanel.add(updateButton);
-        buttonPanel.add(deleteButton);
+        loadButton = new JButton("タスク一覧読み込み");
+        inputPanel.add(loadButton);
 
-        // テーブル設定
-        taskTable = new JTable();
-        JScrollPane scrollPane = new JScrollPane(taskTable);
-        loadTasks();
-
-        // コンポーネントをフレームに追加
-        add(inputPanel, BorderLayout.NORTH);
-        add(buttonPanel, BorderLayout.CENTER);
-        add(scrollPane, BorderLayout.SOUTH);
+        add(inputPanel, BorderLayout.SOUTH);
 
         // ボタンアクション
-        addButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                addTask();
-            }
-        });
-
-        updateButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                updateTask();
-            }
-        });
-
-        deleteButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                deleteTask();
-            }
-        });
+        addButton.addActionListener(e -> addTask());
+        loadButton.addActionListener(e -> loadTasks());
     }
 
-    // データベースからタスクを読み込んでテーブルに表示
-    private void loadTasks() {
-        try {
-            // SQLite JDBCドライバのロード
-            Class.forName("org.sqlite.JDBC");
-            
-            try (Connection conn = DriverManager.getConnection("jdbc:sqlite:/Users/genki/tasks.db")) {
-                String query = "SELECT * FROM tasks";
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(query);
-                
-                // テーブルに表示するデータを格納
-                DefaultTableModel model = new DefaultTableModel();
-                model.addColumn("ID");
-                model.addColumn("タスク名");
-                model.addColumn("期日");
-                model.addColumn("完了");
-                
-                while (rs.next()) {
-                    model.addRow(new Object[] {
-                        rs.getInt("id"),
-                        rs.getString("task_name"),
-                        rs.getString("due_date"),
-                        rs.getString("completed")
-                    });
+    // データベースとテーブル作成
+    private void createDatabaseAndTable() {
+        String url = "jdbc:sqlite:/Users/genki/tasks.db";
+
+        try (Connection conn = DriverManager.getConnection(url)) {
+            if (conn != null) {
+                // テーブル作成SQL文
+                String createTableSQL = "CREATE TABLE IF NOT EXISTS tasks2 ("
+                        + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                        + "task_name TEXT NOT NULL, "
+                        + "due_date TEXT NOT NULL, "
+                        + "completed TEXT NOT NULL);";
+
+                // テーブル作成のためのステートメント実行
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(createTableSQL);
+                    System.out.println("テーブル 'tasks2' が作成されました。");
                 }
-                
-                taskTable.setModel(model);
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("エラー: " + e.getMessage());
         }
     }
 
-    // タスク追加
+    // タスクをデータベースに追加
     private void addTask() {
         String taskName = taskNameField.getText();
         String dueDate = dueDateField.getText();
+        String completed = completedField.getText();
 
-        if (taskName.isEmpty() || dueDate.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "タスク名と期日を入力してください");
-            return;
-        }
+        String url = "jdbc:sqlite:/Users/genki/tasks.db";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String query = "INSERT INTO tasks (task_name, due_date) VALUES (?, ?)";
-            PreparedStatement pstmt = conn.prepareStatement(query);
-            pstmt.setString(1, taskName);
-            pstmt.setString(2, dueDate);
-            pstmt.executeUpdate();
-
-            loadTasks();  // 更新後に再読み込み
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // タスク更新
-    private void updateTask() {
-        int selectedRow = taskTable.getSelectedRow();
-        if (selectedRow != -1) {
-            int taskId = (int) taskTable.getValueAt(selectedRow, 0);
-            String taskName = taskNameField.getText();
-            String dueDate = dueDateField.getText();
-
-            if (taskName.isEmpty() || dueDate.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "タスク名と期日を入力してください");
-                return;
-            }
-
-            try (Connection conn = DriverManager.getConnection(DB_URL)) {
-                String query = "UPDATE tasks SET task_name = ?, due_date = ? WHERE id = ?";
-                PreparedStatement pstmt = conn.prepareStatement(query);
+        try (Connection conn = DriverManager.getConnection(url)) {
+            String insertSQL = "INSERT INTO tasks2 (task_name, due_date, completed) VALUES (?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
                 pstmt.setString(1, taskName);
                 pstmt.setString(2, dueDate);
-                pstmt.setInt(3, taskId);
+                pstmt.setString(3, completed);
                 pstmt.executeUpdate();
-
-                loadTasks();  // 更新後に再読み込み
-            } catch (SQLException e) {
-                e.printStackTrace();
+                taskListArea.append("タスク追加成功: " + taskName + "\n");
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "更新するタスクを選択してください");
+        } catch (SQLException e) {
+            taskListArea.append("エラー: " + e.getMessage() + "\n");
         }
     }
 
-    // タスク削除
-    private void deleteTask() {
-        int selectedRow = taskTable.getSelectedRow();
-        if (selectedRow != -1) {
-            int taskId = (int) taskTable.getValueAt(selectedRow, 0);
+    // タスクをデータベースから読み込んで表示
+    private void loadTasks() {
+        String url = "jdbc:sqlite:/Users/genki/tasks.db";
+        String query = "SELECT * FROM tasks2";
 
-            try (Connection conn = DriverManager.getConnection(DB_URL)) {
-                String query = "DELETE FROM tasks WHERE id = ?";
-                PreparedStatement pstmt = conn.prepareStatement(query);
-                pstmt.setInt(1, taskId);
-                pstmt.executeUpdate();
+        try (Connection conn = DriverManager.getConnection(url);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
 
-                loadTasks();  // 更新後に再読み込み
-            } catch (SQLException e) {
-                e.printStackTrace();
+            taskListArea.setText(""); // 現在の表示内容をクリア
+
+            while (rs.next()) {
+                String taskName = rs.getString("task_name");
+                String dueDate = rs.getString("due_date");
+                String completed = rs.getString("completed");
+                taskListArea.append("タスク名: " + taskName + ", 期限日: " + dueDate + ", 完了: " + completed + "\n");
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "削除するタスクを選択してください");
+
+        } catch (SQLException e) {
+            taskListArea.append("エラー: " + e.getMessage() + "\n");
         }
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new タスク管理GUI().setVisible(true);
-            }
+        SwingUtilities.invokeLater(() -> {
+            タスク管理GUI app = new タスク管理GUI();
+            app.setVisible(true);
         });
     }
 }
