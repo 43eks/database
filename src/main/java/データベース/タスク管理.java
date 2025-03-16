@@ -9,7 +9,7 @@ import java.sql.Statement;
 import java.util.Scanner;
 
 public class タスク管理 {
-    private static final String DB_URL = "jdbc:sqlite:tasks.db";
+	private static final String DB_URL = "jdbc:sqlite:/Users/genki/tasks.db";
 
     public static void main(String[] args) {
         initializeDatabase();
