@@ -53,28 +53,50 @@ public class タスク管理 {
     // データベースの初期化
     private static void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String checkColumnSQL = "PRAGMA table_info(tasks)";
-            boolean hasDueDateColumn = false;
-            try (Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery(checkColumnSQL)) {
-                while (rs.next()) {
-                    if ("due_date".equalsIgnoreCase(rs.getString("name"))) {
-                        hasDueDateColumn = true;
-                        break;
-                    }
-                }
+            if (conn != null) {
+                System.out.println("データベース接続成功: " + DB_URL);
+            } else {
+                System.err.println("データベース接続に失敗");
+                return;
             }
 
-            if (!hasDueDateColumn) {
-                String addColumnSQL = "ALTER TABLE tasks ADD COLUMN due_date TEXT";
+            // 既存の tasks テーブルがない場合は作成
+            String createTableSQL = "CREATE TABLE IF NOT EXISTS tasks (" +
+                                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                    "title TEXT NOT NULL, " +
+                                    "description TEXT, " +
+                                    "status TEXT DEFAULT '未完了')";
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTableSQL);
+                System.out.println("テーブル作成成功");
+            }
+
+            // priority カラムがない場合に追加
+            if (!columnExists(conn, "tasks", "priority")) {
+                String addColumnSQL = "ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 2";
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(addColumnSQL);
-                    System.out.println("due_dateカラムを追加しました。");
+                    System.out.println("priority カラムを追加しました。");
                 }
             }
         } catch (SQLException e) {
             System.err.println("データベースの初期化エラー: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+
+    // 指定したテーブルにカラムが存在するかチェック
+    private static boolean columnExists(Connection conn, String tableName, String columnName) throws SQLException {
+        String checkColumnSQL = "PRAGMA table_info(" + tableName + ")";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(checkColumnSQL)) {
+            while (rs.next()) {
+                if (columnName.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // タスクの追加
