@@ -95,12 +95,23 @@ public class タスク管理 {
         String title = scanner.nextLine();
         System.out.print("タスクの説明を入力: ");
         String description = scanner.nextLine();
+        
+        System.out.println("優先度を選択してください (1: 高, 2: 中, 3: 低): ");
+        int priority;
+        while (true) {
+            try {
+                priority = Integer.parseInt(scanner.nextLine());
+                if (priority >= 1 && priority <= 3) break;
+            } catch (NumberFormatException ignored) {}
+            System.out.println("無効な入力です。1〜3の値を入力してください。");
+        }
 
-        String insertSQL = "INSERT INTO tasks (title, description) VALUES (?, ?)";
+        String insertSQL = "INSERT INTO tasks (title, description, priority) VALUES (?, ?, ?)";
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
             pstmt.setString(1, title);
             pstmt.setString(2, description);
+            pstmt.setInt(3, priority);
             pstmt.executeUpdate();
             System.out.println("タスクを追加しました。");
         } catch (SQLException e) {
