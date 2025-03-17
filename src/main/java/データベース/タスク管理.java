@@ -121,17 +121,25 @@ public class タスク管理 {
 
     // タスクの一覧表示
     private static void listTasks() {
-        String selectSQL = "SELECT * FROM tasks";
+        String selectSQL = "SELECT * FROM tasks ORDER BY priority ASC, id DESC";
         try (Connection conn = DriverManager.getConnection(DB_URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectSQL)) {
-            System.out.println("\n===== タスク一覧 =====");
+            System.out.println("\n===== タスク一覧 (優先度順) =====");
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String title = rs.getString("title");
                 String description = rs.getString("description");
                 String status = rs.getString("status");
-                System.out.println(id + ". [" + status + "] " + title + " - " + description);
+                int priority = rs.getInt("priority");
+                
+                String priorityStr = switch (priority) {
+                    case 1 -> "高";
+                    case 2 -> "中";
+                    default -> "低";
+                };
+                
+                System.out.println(id + ". [" + status + "] " + title + " (優先度: " + priorityStr + ") - " + description);
             }
         } catch (SQLException e) {
             System.err.println("タスク一覧取得エラー: " + e.getMessage());
