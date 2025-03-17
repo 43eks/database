@@ -53,36 +53,39 @@ public class タスク管理 {
     // データベースの初期化
     private static void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            if (conn != null) {
-                System.out.println("データベース接続成功: " + DB_URL);
-            } else {
-                System.err.println("データベース接続に失敗");
-                return;
-            }
-
             String createTableSQL = "CREATE TABLE IF NOT EXISTS tasks (" +
                                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                                     "title TEXT NOT NULL, " +
                                     "description TEXT, " +
-                                    "status TEXT DEFAULT '未完了')";
-
+                                    "status TEXT DEFAULT '未完了', " +
+                                    "priority INTEGER DEFAULT 2)"; // 低=3, 中=2(デフォルト), 高=1
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(createTableSQL);
                 System.out.println("テーブル作成成功");
-                
-                // 確認のためにテーブル一覧を表示
-                ResultSet rs = conn.getMetaData().getTables(null, null, "%", null);
-                System.out.println("データベース内のテーブル一覧:");
+            }
+
+            // priority カラムがない場合に追加
+            String checkColumnSQL = "PRAGMA table_info(tasks)";
+            boolean hasPriorityColumn = false;
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(checkColumnSQL)) {
                 while (rs.next()) {
-                    System.out.println("- " + rs.getString(3));
+                    if ("priority".equalsIgnoreCase(rs.getString("name"))) {
+                        hasPriorityColumn = true;
+                        break;
+                    }
                 }
-            } catch (SQLException e) {
-                System.err.println("テーブル作成エラー: " + e.getMessage());
-                e.printStackTrace();
+            }
+
+            if (!hasPriorityColumn) {
+                String addColumnSQL = "ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 2";
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(addColumnSQL);
+                    System.out.println("priorityカラムを追加しました。");
+                }
             }
         } catch (SQLException e) {
-            System.err.println("データベース接続エラー: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("データベースの初期化エラー: " + e.getMessage());
         }
     }
 
