@@ -83,51 +83,49 @@ public class タスク管理 {
         String title = scanner.nextLine();
         System.out.print("タスクの説明を入力: ");
         String description = scanner.nextLine();
-        
-        System.out.println("優先度を選択してください (1: 高, 2: 中, 3: 低): ");
-        int priority;
+
+        System.out.print("締切日を YYYY-MM-DD 形式で入力 (例: 2025-03-20): ");
+        String dueDate;
         while (true) {
-            try {
-                priority = Integer.parseInt(scanner.nextLine());
-                if (priority >= 1 && priority <= 3) break;
-            } catch (NumberFormatException ignored) {}
-            System.out.println("無効な入力です。1〜3の値を入力してください。");
+            dueDate = scanner.nextLine();
+            if (dueDate.matches("\\d{4}-\\d{2}-\\d{2}")) break;
+            System.out.println("無効なフォーマットです。YYYY-MM-DD 形式で入力してください。");
         }
 
-        String insertSQL = "INSERT INTO tasks (title, description, priority) VALUES (?, ?, ?)";
+        String insertSQL = "INSERT INTO tasks (title, description, due_date) VALUES (?, ?, ?)";
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
             pstmt.setString(1, title);
             pstmt.setString(2, description);
-            pstmt.setInt(3, priority);
+            pstmt.setString(3, dueDate);
             pstmt.executeUpdate();
             System.out.println("タスクを追加しました。");
         } catch (SQLException e) {
             System.err.println("タスク追加エラー: " + e.getMessage());
         }
     }
-
     // タスクの一覧表示
     private static void listTasks() {
-        String selectSQL = "SELECT * FROM tasks ORDER BY priority ASC, id DESC";
+        String selectSQL = "SELECT * FROM tasks ORDER BY due_date ASC, priority ASC, id DESC";
         try (Connection conn = DriverManager.getConnection(DB_URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectSQL)) {
-            System.out.println("\n===== タスク一覧 (優先度順) =====");
+            System.out.println("\n===== タスク一覧 (締切日順) =====");
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String title = rs.getString("title");
                 String description = rs.getString("description");
                 String status = rs.getString("status");
                 int priority = rs.getInt("priority");
-                
+                String dueDate = rs.getString("due_date");
+
                 String priorityStr = switch (priority) {
                     case 1 -> "高";
                     case 2 -> "中";
                     default -> "低";
                 };
-                
-                System.out.println(id + ". [" + status + "] " + title + " (優先度: " + priorityStr + ") - " + description);
+
+                System.out.println(id + ". [" + status + "] " + title + " (優先度: " + priorityStr + ", 締切: " + dueDate + ") - " + description);
             }
         } catch (SQLException e) {
             System.err.println("タスク一覧取得エラー: " + e.getMessage());
