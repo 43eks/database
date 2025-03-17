@@ -53,35 +53,23 @@ public class タスク管理 {
     // データベースの初期化
     private static void initializeDatabase() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String createTableSQL = "CREATE TABLE IF NOT EXISTS tasks (" +
-                                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                                    "title TEXT NOT NULL, " +
-                                    "description TEXT, " +
-                                    "status TEXT DEFAULT '未完了', " +
-                                    "priority INTEGER DEFAULT 2)"; // 低=3, 中=2(デフォルト), 高=1
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(createTableSQL);
-                System.out.println("テーブル作成成功");
-            }
-
-            // priority カラムがない場合に追加
             String checkColumnSQL = "PRAGMA table_info(tasks)";
-            boolean hasPriorityColumn = false;
+            boolean hasDueDateColumn = false;
             try (Statement stmt = conn.createStatement();
                  ResultSet rs = stmt.executeQuery(checkColumnSQL)) {
                 while (rs.next()) {
-                    if ("priority".equalsIgnoreCase(rs.getString("name"))) {
-                        hasPriorityColumn = true;
+                    if ("due_date".equalsIgnoreCase(rs.getString("name"))) {
+                        hasDueDateColumn = true;
                         break;
                     }
                 }
             }
 
-            if (!hasPriorityColumn) {
-                String addColumnSQL = "ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 2";
+            if (!hasDueDateColumn) {
+                String addColumnSQL = "ALTER TABLE tasks ADD COLUMN due_date TEXT";
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(addColumnSQL);
-                    System.out.println("priorityカラムを追加しました。");
+                    System.out.println("due_dateカラムを追加しました。");
                 }
             }
         } catch (SQLException e) {
