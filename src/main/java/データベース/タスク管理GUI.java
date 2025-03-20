@@ -9,8 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.LocalDate;
-import java.util.Vector;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -25,9 +23,9 @@ import javax.swing.SwingUtilities;
 
 public class タスク管理GUI extends JFrame {
     private JTextArea taskListArea;
-    private JTextField taskNameField, dueDateField;
+    private JTextField taskNameField, dueDateField, deleteTaskIdField;
     private JCheckBox completedCheckBox;
-    private JButton addButton, loadButton, deleteButton, updateButton, filterButton;
+    private JButton addButton, loadButton, deleteButton, filterButton;
     private JComboBox<String> yearComboBox, monthComboBox;
     private static final String DB_URL = "jdbc:sqlite:tasks.db";
 
@@ -37,7 +35,7 @@ public class タスク管理GUI extends JFrame {
 
         // GUI設定
         setTitle("タスク管理アプリ");
-        setSize(500, 450);
+        setSize(500, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -45,7 +43,7 @@ public class タスク管理GUI extends JFrame {
         taskListArea.setEditable(false);
         add(new JScrollPane(taskListArea), BorderLayout.CENTER);
 
-        JPanel inputPanel = new JPanel(new GridLayout(5, 2));
+        JPanel inputPanel = new JPanel(new GridLayout(6, 2));
 
         inputPanel.add(new JLabel("タスク名:"));
         taskNameField = new JTextField();
@@ -61,21 +59,17 @@ public class タスク管理GUI extends JFrame {
 
         addButton = new JButton("タスク追加");
         loadButton = new JButton("全タスク表示");
-        deleteButton = new JButton("選択タスク削除");
-        updateButton = new JButton("タスク更新");
 
         inputPanel.add(addButton);
         inputPanel.add(loadButton);
-        inputPanel.add(deleteButton);
-        inputPanel.add(updateButton);
 
         add(inputPanel, BorderLayout.SOUTH);
 
         // 年と月の選択用パネル
         JPanel filterPanel = new JPanel(new FlowLayout());
 
-        yearComboBox = new JComboBox<>(getYearOptions());
-        monthComboBox = new JComboBox<>(getMonthOptions());
+       // yearComboBox = new JComboBox<>(getYearOptions());
+       // monthComboBox = new JComboBox<>(getMonthOptions());
 
         filterButton = new JButton("選択した月のタスク表示");
 
@@ -87,25 +81,23 @@ public class タスク管理GUI extends JFrame {
 
         add(filterPanel, BorderLayout.NORTH);
 
+        // タスク削除用のパネル
+        JPanel deletePanel = new JPanel(new GridLayout(1, 3));
+        deletePanel.add(new JLabel("削除するタスクID:"));
+        deleteTaskIdField = new JTextField();
+        deletePanel.add(deleteTaskIdField);
+        deleteButton = new JButton("タスク削除");
+        deletePanel.add(deleteButton);
+        add(deletePanel, BorderLayout.EAST);
+
         // ボタンアクション
         addButton.addActionListener(e -> addTask());
         loadButton.addActionListener(e -> loadTasks());
         deleteButton.addActionListener(e -> deleteTask());
-        updateButton.addActionListener(e -> updateTask());
         filterButton.addActionListener(e -> filterTasksByMonth());
     }
 
-    private Object updateTask() {
-		// TODO 自動生成されたメソッド・スタブ
-		return null;
-	}
-
-	private Object deleteTask() {
-		// TODO 自動生成されたメソッド・スタブ
-		return null;
-	}
-
-	// データベースとテーブル作成
+    // データベースとテーブル作成
     private void createDatabaseAndTable() {
         try (Connection conn = DriverManager.getConnection(DB_URL);
              Statement stmt = conn.createStatement()) {
@@ -167,6 +159,34 @@ public class タスク管理GUI extends JFrame {
         }
     }
 
+    // タスク削除
+    private void deleteTask() {
+        String taskId = deleteTaskIdField.getText();
+
+        if (taskId.isEmpty()) {
+            taskListArea.append("エラー: 削除するタスクIDを入力してください。\n");
+            return;
+        }
+
+        String deleteSQL = "DELETE FROM tasks WHERE id = ?";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+
+            pstmt.setInt(1, Integer.parseInt(taskId));
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                taskListArea.append("タスク削除成功: ID " + taskId + "\n");
+            } else {
+                taskListArea.append("エラー: タスクが見つかりません。\n");
+            }
+
+        } catch (SQLException e) {
+            taskListArea.append("エラー: " + e.getMessage() + "\n");
+        }
+    }
+
     // 月ごとのタスクを表示
     private void filterTasksByMonth() {
         String year = (String) yearComboBox.getSelectedItem();
@@ -193,25 +213,6 @@ public class タスク管理GUI extends JFrame {
         } catch (SQLException e) {
             taskListArea.append("エラー: " + e.getMessage() + "\n");
         }
-    }
-
-    // 年の選択肢を作成
-    private String[] getYearOptions() {
-        int currentYear = LocalDate.now().getYear();
-        Vector<String> years = new Vector<>();
-        for (int i = currentYear - 5; i <= currentYear + 5; i++) {
-            years.add(String.valueOf(i));
-        }
-        return years.toArray(new String[0]);
-    }
-
-    // 月の選択肢を作成
-    private String[] getMonthOptions() {
-        Vector<String> months = new Vector<>();
-        for (int i = 1; i <= 12; i++) {
-            months.add(String.format("%02d", i));
-        }
-        return months.toArray(new String[0]);
     }
 
     public static void main(String[] args) {
