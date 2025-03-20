@@ -23,15 +23,15 @@ public class タスク管理GUI extends JFrame {
     private JTextArea taskListArea;
     private JTextField taskNameField, dueDateField, completedField;
     private JTextField editIdField, editNameField, editDueDateField, editCompletedField;
-    private JButton addButton, loadButton, updateButton;
+    private JTextField searchField;
+    private JButton addButton, loadButton, updateButton, searchButton;
 
     public タスク管理GUI() {
-        // データベースとテーブルの作成
         createDatabaseAndTable();
 
         // GUI設定
         setTitle("タスク管理アプリ");
-        setSize(500, 500);
+        setSize(500, 550);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -42,7 +42,6 @@ public class タスク管理GUI extends JFrame {
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new GridLayout(5, 2));
 
-        // タスク追加用フィールド
         inputPanel.add(new JLabel("タスク名:"));
         taskNameField = new JTextField();
         inputPanel.add(taskNameField);
@@ -63,7 +62,20 @@ public class タスク管理GUI extends JFrame {
 
         add(inputPanel, BorderLayout.NORTH);
 
-        // タスク編集用フィールド
+        // 検索機能追加
+        JPanel searchPanel = new JPanel();
+        searchPanel.setLayout(new GridLayout(1, 2));
+
+        searchPanel.add(new JLabel("検索キーワード:"));
+        searchField = new JTextField();
+        searchPanel.add(searchField);
+
+        searchButton = new JButton("検索");
+        searchPanel.add(searchButton);
+
+        add(searchPanel, BorderLayout.CENTER);
+
+        // タスク編集用
         JPanel editPanel = new JPanel();
         editPanel.setLayout(new GridLayout(5, 2));
 
@@ -88,10 +100,11 @@ public class タスク管理GUI extends JFrame {
 
         add(editPanel, BorderLayout.SOUTH);
 
-        // ボタンのアクション設定
+        // ボタンアクション
         addButton.addActionListener(e -> addTask());
         loadButton.addActionListener(e -> loadTasks());
-        updateButton.addActionListener(e -> updateTask());
+        updateButton.addActionListener(e -> updateZOrder());
+        searchButton.addActionListener(e -> searchTasks());
     }
 
     // データベースとテーブル作成
@@ -143,7 +156,7 @@ public class タスク管理GUI extends JFrame {
         }
     }
 
-    // タスクを読み込む
+    // タスク一覧を表示
     private void loadTasks() {
         String url = "jdbc:sqlite:tasks.db";
         String query = "SELECT * FROM tasks ORDER BY due_date ASC";
@@ -152,7 +165,7 @@ public class タスク管理GUI extends JFrame {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
-            taskListArea.setText(""); // 表示リセット
+            taskListArea.setText("");
 
             while (rs.next()) {
                 int id = rs.getInt("id");
@@ -171,39 +184,36 @@ public class タスク管理GUI extends JFrame {
         }
     }
 
-    // タスクを更新
-    private void updateTask() {
-        String idText = editIdField.getText();
-        String newName = editNameField.getText();
-        String newDueDate = editDueDateField.getText();
-        String newCompleted = editCompletedField.getText();
-
-        if (idText.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "更新するタスクのIDを入力してください！");
-            return;
-        }
-
-        int id = Integer.parseInt(idText);
+    // タスクを検索
+    private void searchTasks() {
+        String keyword = searchField.getText();
         String url = "jdbc:sqlite:tasks.db";
+        String query = "SELECT * FROM tasks WHERE task_name LIKE ? OR due_date LIKE ? ORDER BY due_date ASC";
 
-        try (Connection conn = DriverManager.getConnection(url)) {
-            String updateSQL = "UPDATE tasks SET task_name = ?, due_date = ?, completed = ? WHERE id = ?";
-            try (PreparedStatement pstmt = conn.prepareStatement(updateSQL)) {
-                pstmt.setString(1, newName);
-                pstmt.setString(2, newDueDate);
-                pstmt.setInt(3, Integer.parseInt(newCompleted));
-                pstmt.setInt(4, id);
-                int rowsUpdated = pstmt.executeUpdate();
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
 
-                if (rowsUpdated > 0) {
-                    JOptionPane.showMessageDialog(this, "タスク更新成功！");
-                    loadTasks();
-                } else {
-                    JOptionPane.showMessageDialog(this, "タスクが見つかりませんでした。");
+            pstmt.setString(1, "%" + keyword + "%");
+            pstmt.setString(2, "%" + keyword + "%");
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                taskListArea.setText("");
+
+                while (rs.next()) {
+                    int id = rs.getInt("id");
+                    String taskName = rs.getString("task_name");
+                    String dueDate = rs.getString("due_date");
+                    int completed = rs.getInt("completed");
+
+                    String status = (completed == 1) ? "完了" : "未完了";
+                    taskListArea.append("ID: " + id + " | タスク名: " + taskName +
+                            " | 期限日: " + (dueDate != null ? dueDate : "なし") +
+                            " | ステータス: " + status + "\n");
                 }
             }
+
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "エラー: " + e.getMessage());
+            taskListArea.append("エラー: " + e.getMessage() + "\n");
         }
     }
 
