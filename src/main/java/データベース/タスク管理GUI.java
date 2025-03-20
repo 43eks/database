@@ -2,6 +2,8 @@ package データベース;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -22,16 +24,13 @@ import javax.swing.SwingUtilities;
 public class タスク管理GUI extends JFrame {
     private JTextArea taskListArea;
     private JTextField taskNameField, dueDateField, completedField;
-    private JTextField editIdField, editNameField, editDueDateField, editCompletedField;
-    private JTextField searchField;
-    private JButton addButton, loadButton, updateButton, searchButton;
+    private JButton addButton, loadButton, exportButton;
 
     public タスク管理GUI() {
         createDatabaseAndTable();
 
-        // GUI設定
         setTitle("タスク管理アプリ");
-        setSize(500, 550);
+        setSize(500, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -40,7 +39,7 @@ public class タスク管理GUI extends JFrame {
         add(new JScrollPane(taskListArea), BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel();
-        inputPanel.setLayout(new GridLayout(5, 2));
+        inputPanel.setLayout(new GridLayout(4, 2));
 
         inputPanel.add(new JLabel("タスク名:"));
         taskNameField = new JTextField();
@@ -60,51 +59,15 @@ public class タスク管理GUI extends JFrame {
         loadButton = new JButton("タスク一覧読み込み");
         inputPanel.add(loadButton);
 
-        add(inputPanel, BorderLayout.NORTH);
+        exportButton = new JButton("CSVエクスポート");
+        inputPanel.add(exportButton);
 
-        // 検索機能追加
-        JPanel searchPanel = new JPanel();
-        searchPanel.setLayout(new GridLayout(1, 2));
+        add(inputPanel, BorderLayout.SOUTH);
 
-        searchPanel.add(new JLabel("検索キーワード:"));
-        searchField = new JTextField();
-        searchPanel.add(searchField);
-
-        searchButton = new JButton("検索");
-        searchPanel.add(searchButton);
-
-        add(searchPanel, BorderLayout.CENTER);
-
-        // タスク編集用
-        JPanel editPanel = new JPanel();
-        editPanel.setLayout(new GridLayout(5, 2));
-
-        editPanel.add(new JLabel("編集対象のタスクID:"));
-        editIdField = new JTextField();
-        editPanel.add(editIdField);
-
-        editPanel.add(new JLabel("新しいタスク名:"));
-        editNameField = new JTextField();
-        editPanel.add(editNameField);
-
-        editPanel.add(new JLabel("新しい期限日 (YYYY-MM-DD):"));
-        editDueDateField = new JTextField();
-        editPanel.add(editDueDateField);
-
-        editPanel.add(new JLabel("新しい完了ステータス (0:未完了, 1:完了):"));
-        editCompletedField = new JTextField();
-        editPanel.add(editCompletedField);
-
-        updateButton = new JButton("タスクを更新");
-        editPanel.add(updateButton);
-
-        add(editPanel, BorderLayout.SOUTH);
-
-        // ボタンアクション
+        // ボタンのアクション設定
         addButton.addActionListener(e -> addTask());
         loadButton.addActionListener(e -> loadTasks());
-        updateButton.addActionListener(e -> updateZOrder());
-        searchButton.addActionListener(e -> searchTasks());
+        exportButton.addActionListener(e -> exportTasksToCSV());
     }
 
     // データベースとテーブル作成
@@ -184,36 +147,33 @@ public class タスク管理GUI extends JFrame {
         }
     }
 
-    // タスクを検索
-    private void searchTasks() {
-        String keyword = searchField.getText();
+    // タスクをCSVファイルにエクスポート
+    private void exportTasksToCSV() {
         String url = "jdbc:sqlite:tasks.db";
-        String query = "SELECT * FROM tasks WHERE task_name LIKE ? OR due_date LIKE ? ORDER BY due_date ASC";
+        String query = "SELECT * FROM tasks ORDER BY due_date ASC";
+        String csvFile = "tasks.csv";
 
         try (Connection conn = DriverManager.getConnection(url);
-             PreparedStatement pstmt = conn.prepareStatement(query)) {
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query);
+             FileWriter writer = new FileWriter(csvFile)) {
 
-            pstmt.setString(1, "%" + keyword + "%");
-            pstmt.setString(2, "%" + keyword + "%");
+            // CSVヘッダーを書く
+            writer.append("ID,タスク名,期限日,完了ステータス\n");
 
-            try (ResultSet rs = pstmt.executeQuery()) {
-                taskListArea.setText("");
+            // データを書き出し
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String taskName = rs.getString("task_name");
+                String dueDate = rs.getString("due_date");
+                int completed = rs.getInt("completed");
 
-                while (rs.next()) {
-                    int id = rs.getInt("id");
-                    String taskName = rs.getString("task_name");
-                    String dueDate = rs.getString("due_date");
-                    int completed = rs.getInt("completed");
-
-                    String status = (completed == 1) ? "完了" : "未完了";
-                    taskListArea.append("ID: " + id + " | タスク名: " + taskName +
-                            " | 期限日: " + (dueDate != null ? dueDate : "なし") +
-                            " | ステータス: " + status + "\n");
-                }
+                writer.append(id + "," + taskName + "," + (dueDate != null ? dueDate : "なし") + "," + completed + "\n");
             }
 
-        } catch (SQLException e) {
-            taskListArea.append("エラー: " + e.getMessage() + "\n");
+            JOptionPane.showMessageDialog(this, "CSVエクスポート成功！\n保存先: " + csvFile);
+        } catch (SQLException | IOException e) {
+            JOptionPane.showMessageDialog(this, "エクスポートエラー: " + e.getMessage());
         }
     }
 
