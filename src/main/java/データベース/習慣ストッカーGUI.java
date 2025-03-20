@@ -2,15 +2,14 @@ package データベース;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -19,203 +18,232 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableModel;
 
 public class 習慣ストッカーGUI extends JFrame {
-    private JTextField habitNameField;
-    private JButton addHabitButton, markCompletedButton, showHabitsButton, deleteHabitButton;
-    private JTextArea habitListArea;
-    private JComboBox<String> habitDropdown;
-    private Connection conn;
+    private JTextField habitNameField, newCategoryField, searchField;
+    private JComboBox<String> categoryComboBox;
+    private JButton addButton, recordButton, searchButton, exportButton, addCategoryButton, deleteCategoryButton;
+    private JTable habitTable;
+    private DefaultTableModel tableModel;
+
+    private static final String DB_URL = "jdbc:sqlite:habits.db";
 
     public 習慣ストッカーGUI() {
         setTitle("習慣トラッカー");
-        setSize(500, 400);
+        setSize(700, 450);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // データベースの接続とテーブル作成
-        connectToDatabase();
-        createTables();
+        createDatabaseAndTables();
 
-        // GUIの作成
-        JPanel inputPanel = new JPanel(new GridLayout(2, 2));
-        habitNameField = new JTextField();
-        addHabitButton = new JButton("習慣を追加");
-        markCompletedButton = new JButton("達成を記録");
-        showHabitsButton = new JButton("習慣一覧を表示");
-        deleteHabitButton = new JButton("習慣を削除");
-
+        // 📌 上部入力パネル
+        JPanel inputPanel = new JPanel(new GridLayout(3, 3));
         inputPanel.add(new JLabel("習慣名:"));
+        habitNameField = new JTextField();
         inputPanel.add(habitNameField);
-        inputPanel.add(addHabitButton);
-        inputPanel.add(markCompletedButton);
+        inputPanel.add(new JLabel("カテゴリ:"));
 
+        categoryComboBox = new JComboBox<>();
+        loadCategories();
+        inputPanel.add(categoryComboBox);
+
+        addButton = new JButton("習慣追加");
+        inputPanel.add(addButton);
+        recordButton = new JButton("達成記録");
+        inputPanel.add(recordButton);
         add(inputPanel, BorderLayout.NORTH);
 
-        // 結果表示エリア
-        habitListArea = new JTextArea();
-        habitListArea.setEditable(false);
-        add(new JScrollPane(habitListArea), BorderLayout.CENTER);
+        // 📌 中央テーブル
+        tableModel = new DefaultTableModel(new String[]{"ID", "習慣名", "カテゴリ", "達成日"}, 0);
+        habitTable = new JTable(tableModel);
+        add(new JScrollPane(habitTable), BorderLayout.CENTER);
 
-        // 達成記録 & 削除用パネル
-        JPanel controlPanel = new JPanel();
-        habitDropdown = new JComboBox<>();
-        controlPanel.add(habitDropdown);
-        controlPanel.add(showHabitsButton);
-        controlPanel.add(deleteHabitButton);
+        // 📌 下部検索・カテゴリ管理パネル
+        JPanel bottomPanel = new JPanel();
+        searchField = new JTextField(15);
+        searchButton = new JButton("検索");
+        exportButton = new JButton("エクスポート");
 
-        add(controlPanel, BorderLayout.SOUTH);
+        newCategoryField = new JTextField(10);
+        addCategoryButton = new JButton("カテゴリ追加");
+        deleteCategoryButton = new JButton("カテゴリ削除");
 
-        // ボタンのアクションリスナー
-        addHabitButton.addActionListener(this::addHabit);
-        markCompletedButton.addActionListener(this::markHabitCompleted);
-        showHabitsButton.addActionListener(this::showHabits);
-        deleteHabitButton.addActionListener(this::deleteHabit);
+        bottomPanel.add(new JLabel("検索:"));
+        bottomPanel.add(searchField);
+        bottomPanel.add(searchButton);
+        bottomPanel.add(exportButton);
+        bottomPanel.add(new JLabel("新カテゴリ:"));
+        bottomPanel.add(newCategoryField);
+        bottomPanel.add(addCategoryButton);
+        bottomPanel.add(deleteCategoryButton);
+        add(bottomPanel, BorderLayout.SOUTH);
 
-        // 初期データ読み込み
-        updateHabitDropdown();
+        // 📌 ボタンアクション
+        addButton.addActionListener(e -> addHabit());
+        recordButton.addActionListener(e -> recordHabitCompletion());
+        searchButton.addActionListener(e -> searchHabits());
+        exportButton.addActionListener(e -> exportHabitsToCSV());
+        addCategoryButton.addActionListener(e -> addCategory());
+        deleteCategoryButton.addActionListener(e -> deleteCategory());
+
+        loadHabits();
     }
 
-    // データベース接続
-    private void connectToDatabase() {
-        try {
-            conn = DriverManager.getConnection("jdbc:sqlite:habits.db");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
+    private Object deleteCategory() {
+		// TODO 自動生成されたメソッド・スタブ
+		return null;
+	}
 
-    // テーブル作成
-    private void createTables() {
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute("CREATE TABLE IF NOT EXISTS habits ("
+	private Object addCategory() {
+		// TODO 自動生成されたメソッド・スタブ
+		return null;
+	}
+
+	private void loadHabits() {
+		// TODO 自動生成されたメソッド・スタブ
+		
+	}
+
+	/** 📌 データベースとテーブル作成 */
+    private void createDatabaseAndTables() {
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement()) {
+
+            // 習慣テーブル
+            String createHabitsTableSQL = "CREATE TABLE IF NOT EXISTS habits ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                     + "name TEXT NOT NULL, "
-                    + "created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+                    + "category TEXT NOT NULL, "
+                    + "completed_at TEXT DEFAULT NULL"
+                    + ")";
+            stmt.execute(createHabitsTableSQL);
 
-            stmt.execute("CREATE TABLE IF NOT EXISTS habit_records ("
+            // カテゴリテーブル
+            String createCategoriesTableSQL = "CREATE TABLE IF NOT EXISTS categories ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                    + "habit_id INTEGER NOT NULL, "
-                    + "date TEXT NOT NULL, "
-                    + "FOREIGN KEY (habit_id) REFERENCES habits(id))");
+                    + "name TEXT NOT NULL UNIQUE)";
+            stmt.execute(createCategoriesTableSQL);
 
+            // デフォルトカテゴリ追加
+            stmt.execute("INSERT OR IGNORE INTO categories (name) VALUES ('運動'), ('読書'), ('学習'), ('健康')");
         } catch (SQLException e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "DBエラー: " + e.getMessage());
         }
     }
 
-    // 習慣を追加
-    private void addHabit(ActionEvent e) {
-        String habitName = habitNameField.getText().trim();
-        if (habitName.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "習慣名を入力してください。");
+    /** 📌 カテゴリをコンボボックスにロード */
+    private void loadCategories() {
+        categoryComboBox.removeAllItems();
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name FROM categories")) {
+
+            while (rs.next()) {
+                categoryComboBox.addItem(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "カテゴリ取得エラー: " + e.getMessage());
+        }
+    }
+
+    /** 📌 習慣をデータベースに追加 */
+    private void addHabit() {
+        String name = habitNameField.getText().trim();
+        String category = (String) categoryComboBox.getSelectedItem();
+
+        if (name.isEmpty() || category == null) {
+            JOptionPane.showMessageDialog(this, "習慣名とカテゴリを入力してください。");
             return;
         }
 
-        try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO habits (name) VALUES (?)")) {
-            pstmt.setString(1, habitName);
+        String sql = "INSERT INTO habits (name, category) VALUES (?, ?)";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, name);
+            pstmt.setString(2, category);
             pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "習慣を追加しました: " + habitName);
+            loadHabits();
             habitNameField.setText("");
-            updateHabitDropdown();
-        } catch (SQLException ex) {
-            ex.printStackTrace();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "追加エラー: " + e.getMessage());
         }
     }
 
-    // 達成記録を追加
-    private void markHabitCompleted(ActionEvent e) {
-        String selectedHabit = (String) habitDropdown.getSelectedItem();
-        if (selectedHabit == null) {
-            JOptionPane.showMessageDialog(this, "習慣がありません。");
+    /** 📌 習慣の達成記録 */
+    private void recordHabitCompletion() {
+        int selectedRow = habitTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "記録する習慣を選択してください。");
             return;
         }
 
-        int habitId = getHabitId(selectedHabit);
-        if (habitId == -1) return;
+        int habitId = (int) tableModel.getValueAt(selectedRow, 0);
+        String sql = "UPDATE habits SET completed_at = CURRENT_TIMESTAMP WHERE id = ?";
 
-        String date = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-
-        try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO habit_records (habit_id, date) VALUES (?, ?)")) {
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, habitId);
-            pstmt.setString(2, date);
             pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "達成記録を追加しました: " + selectedHabit + " (" + date + ")");
-        } catch (SQLException ex) {
-            ex.printStackTrace();
+            loadHabits();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "記録エラー: " + e.getMessage());
         }
     }
 
-    // 習慣一覧を表示
-    private void showHabits(ActionEvent e) {
-        habitListArea.setText("");
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT h.name, r.date FROM habits h LEFT JOIN habit_records r ON h.id = r.habit_id ORDER BY r.date DESC")) {
-
-            while (rs.next()) {
-                String habitName = rs.getString("name");
-                String date = rs.getString("date");
-                habitListArea.append(habitName + " - 達成日: " + (date != null ? date : "未達成") + "\n");
-            }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    // 習慣を削除
-    private void deleteHabit(ActionEvent e) {
-        String selectedHabit = (String) habitDropdown.getSelectedItem();
-        if (selectedHabit == null) {
-            JOptionPane.showMessageDialog(this, "削除する習慣がありません。");
+    /** 📌 習慣を検索 */
+    private void searchHabits() {
+        String keyword = searchField.getText().trim();
+        if (keyword.isEmpty()) {
+            loadHabits();
             return;
         }
 
-        int habitId = getHabitId(selectedHabit);
-        if (habitId == -1) return;
-
-        try (PreparedStatement pstmt = conn.prepareStatement("DELETE FROM habits WHERE id = ?")) {
-            pstmt.setInt(1, habitId);
-            pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "習慣を削除しました: " + selectedHabit);
-            updateHabitDropdown();
-            habitListArea.setText("");
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    // 習慣IDを取得
-    private int getHabitId(String habitName) {
-        try (PreparedStatement pstmt = conn.prepareStatement("SELECT id FROM habits WHERE name = ?")) {
-            pstmt.setString(1, habitName);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("id");
+        String sql = "SELECT * FROM habits WHERE name LIKE ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, "%" + keyword + "%");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                tableModel.setRowCount(0);
+                while (rs.next()) {
+                    tableModel.addRow(new Object[]{
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("category"),
+                            rs.getString("completed_at")
+                    });
+                }
             }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "検索エラー: " + e.getMessage());
         }
-        return -1;
     }
 
-    // 習慣リストを更新
-    private void updateHabitDropdown() {
-        habitDropdown.removeAllItems();
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT name FROM habits")) {
+    /** 📌 CSVエクスポート */
+    private void exportHabitsToCSV() {
+        try (FileWriter writer = new FileWriter("habits.csv")) {
+            writer.write("ID,習慣名,カテゴリ,達成日\n");
 
-            while (rs.next()) {
-                habitDropdown.addItem(rs.getString("name"));
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                writer.write(tableModel.getValueAt(i, 0) + "," +
+                        tableModel.getValueAt(i, 1) + "," +
+                        tableModel.getValueAt(i, 2) + "," +
+                        tableModel.getValueAt(i, 3) + "\n");
             }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
+
+            JOptionPane.showMessageDialog(this, "CSVエクスポート完了!");
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "CSVエクスポートエラー: " + e.getMessage());
         }
     }
 
+    /** 📌 メインメソッド */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new 習慣ストッカーGUI().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            new 習慣ストッカーGUI().setVisible(true);
+        });
     }
 }
