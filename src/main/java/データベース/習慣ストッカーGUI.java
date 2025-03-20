@@ -27,7 +27,7 @@ public class 習慣ストッカーGUI extends JFrame {
     private JButton addButton, recordButton, searchButton, exportButton, addCategoryButton, deleteCategoryButton;
     private JTable habitTable;
     private DefaultTableModel tableModel;
-    
+
     private static final String DB_URL = "jdbc:sqlite:habits.db";
 
     public 習慣ストッカーGUI() {
@@ -37,6 +37,7 @@ public class 習慣ストッカーGUI extends JFrame {
         setLayout(new BorderLayout());
 
         createDatabaseAndTables();
+        checkAndAddCompletedAtColumn();
 
         // 📌 上部入力パネル
         JPanel inputPanel = new JPanel(new GridLayout(3, 3));
@@ -91,22 +92,22 @@ public class 習慣ストッカーGUI extends JFrame {
         loadHabits();
     }
 
-    private Object exportHabitsToCSV() {
+    private Object addCategory() {
+		// TODO 自動生成されたメソッド・スタブ
+		return null;
+	}
+
+	private Object deleteCategory() {
+		// TODO 自動生成されたメソッド・スタブ
+		return null;
+	}
+
+	private Object exportHabitsToCSV() {
 		// TODO 自動生成されたメソッド・スタブ
 		return null;
 	}
 
 	private Object searchHabits() {
-		// TODO 自動生成されたメソッド・スタブ
-		return null;
-	}
-
-	private Object recordHabitCompletion() {
-		// TODO 自動生成されたメソッド・スタブ
-		return null;
-	}
-
-	private Object addHabit() {
 		// TODO 自動生成されたメソッド・スタブ
 		return null;
 	}
@@ -117,18 +118,16 @@ public class 習慣ストッカーGUI extends JFrame {
              Statement stmt = conn.createStatement()) {
 
             // 習慣テーブル
-            String createHabitsTableSQL = "CREATE TABLE IF NOT EXISTS habits ("
+            stmt.execute("CREATE TABLE IF NOT EXISTS habits ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                     + "name TEXT NOT NULL, "
                     + "category TEXT NOT NULL, "
-                    + "completed_at TEXT DEFAULT NULL)";
-            stmt.execute(createHabitsTableSQL);
+                    + "completed_at TEXT DEFAULT NULL)");
 
             // カテゴリテーブル
-            String createCategoriesTableSQL = "CREATE TABLE IF NOT EXISTS categories ("
+            stmt.execute("CREATE TABLE IF NOT EXISTS categories ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                    + "name TEXT NOT NULL UNIQUE)";
-            stmt.execute(createCategoriesTableSQL);
+                    + "name TEXT NOT NULL UNIQUE)");
 
             // デフォルトカテゴリ追加
             stmt.execute("INSERT OR IGNORE INTO categories (name) VALUES ('運動'), ('読書'), ('学習'), ('健康')");
@@ -137,13 +136,35 @@ public class 習慣ストッカーGUI extends JFrame {
         }
     }
 
-    /** 📌 カテゴリをコンボボックスにロード */
+    /** 📌 `completed_at` カラムがない場合に追加 */
+    private void checkAndAddCompletedAtColumn() {
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement()) {
+
+            ResultSet rs = stmt.executeQuery("PRAGMA table_info(habits)");
+            boolean columnExists = false;
+            while (rs.next()) {
+                if ("completed_at".equals(rs.getString("name"))) {
+                    columnExists = true;
+                    break;
+                }
+            }
+
+            if (!columnExists) {
+                stmt.execute("ALTER TABLE habits ADD COLUMN completed_at TEXT DEFAULT NULL");
+                System.out.println("completed_at カラムを追加しました。");
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "カラム追加エラー: " + e.getMessage());
+        }
+    }
+
+    /** 📌 カテゴリをロード */
     private void loadCategories() {
         categoryComboBox.removeAllItems();
         try (Connection conn = DriverManager.getConnection(DB_URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT name FROM categories")) {
-
             while (rs.next()) {
                 categoryComboBox.addItem(rs.getString("name"));
             }
@@ -152,13 +173,12 @@ public class 習慣ストッカーGUI extends JFrame {
         }
     }
 
-    /** 📌 習慣をロード */
+    /** 📌 習慣の一覧をロード */
     private void loadHabits() {
         tableModel.setRowCount(0);
         try (Connection conn = DriverManager.getConnection(DB_URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT * FROM habits")) {
-
             while (rs.next()) {
                 tableModel.addRow(new Object[]{
                         rs.getInt("id"),
@@ -172,49 +192,47 @@ public class 習慣ストッカーGUI extends JFrame {
         }
     }
 
-    /** 📌 カテゴリの追加 */
-    private void addCategory() {
-        String newCategory = newCategoryField.getText().trim();
-        if (newCategory.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "カテゴリ名を入力してください。");
+    /** 📌 習慣を追加 */
+    private void addHabit() {
+        String name = habitNameField.getText().trim();
+        String category = (String) categoryComboBox.getSelectedItem();
+        if (name.isEmpty() || category == null) {
+            JOptionPane.showMessageDialog(this, "習慣名とカテゴリを入力してください。");
             return;
         }
 
-        String sql = "INSERT INTO categories (name) VALUES (?)";
         try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, newCategory);
+             PreparedStatement pstmt = conn.prepareStatement("INSERT INTO habits (name, category) VALUES (?, ?)")) {
+            pstmt.setString(1, name);
+            pstmt.setString(2, category);
             pstmt.executeUpdate();
-            loadCategories();
-            newCategoryField.setText("");
+            loadHabits();
+            habitNameField.setText("");
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "カテゴリ追加エラー: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "追加エラー: " + e.getMessage());
         }
     }
 
-    /** 📌 カテゴリの削除 */
-    private void deleteCategory() {
-        String selectedCategory = (String) categoryComboBox.getSelectedItem();
-        if (selectedCategory == null) {
-            JOptionPane.showMessageDialog(this, "削除するカテゴリを選択してください。");
+    /** 📌 習慣の達成記録 */
+    private void recordHabitCompletion() {
+        int selectedRow = habitTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "記録する習慣を選択してください。");
             return;
         }
 
-        String sql = "DELETE FROM categories WHERE name = ?";
+        int habitId = (int) tableModel.getValueAt(selectedRow, 0);
         try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, selectedCategory);
+             PreparedStatement pstmt = conn.prepareStatement("UPDATE habits SET completed_at = CURRENT_TIMESTAMP WHERE id = ?")) {
+            pstmt.setInt(1, habitId);
             pstmt.executeUpdate();
-            loadCategories();
+            loadHabits();
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "カテゴリ削除エラー: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "記録エラー: " + e.getMessage());
         }
     }
 
-    /** 📌 メインメソッド */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new 習慣ストッカーGUI().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new 習慣ストッカーGUI().setVisible(true));
     }
 }
